@@ -15,15 +15,7 @@ def load_config():
         return yaml.safe_load(f)
 
 
-def make_output(det, ocr) -> dict:
-    return {
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "bbox": list(det.bbox),
-        "label": det.label,
-        "value": ocr.value,
-        "raw_text": ocr.raw_text,
-        "confidence": round(ocr.confidence, 4),
-    }
+# 제거된 make_output 대신 프레임 전체 상태를 모아주는 로직은 run() 안에서 처리
 
 
 def run(source=None):
@@ -56,15 +48,27 @@ def run(source=None):
     try:
         for frame in frames:
             detections = detector.detect(frame)
+            
+            # 1프레임당 1개의 통합 JSON 생성 (Option C)
+            frame_state = {
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "data": {}
+            }
+            
             for det in detections:
                 results = reader.read(det.crop)
-                for res in results:
-                    output = make_output(det, res)
-                    if out_cfg["print_result"]:
-                        print(json.dumps(output, ensure_ascii=False))
-                    if out_file:
-                        out_file.write(json.dumps(output, ensure_ascii=False) + "\n")
-                        out_file.flush()
+                if results:
+                    # YOLO가 각 숫자판을 정확히 1개씩 잘라냈다고 가정하므로, 가장 신뢰도 높은 값을 사용
+                    best_res = max(results, key=lambda r: r.confidence)
+                    frame_state["data"][det.label] = best_res.value
+                else:
+                    frame_state["data"][det.label] = None
+                    
+            if out_cfg["print_result"]:
+                print(json.dumps(frame_state, ensure_ascii=False))
+            if out_file:
+                out_file.write(json.dumps(frame_state, ensure_ascii=False) + "\n")
+                out_file.flush()
 
             vis = detector.draw(frame, detections)
             cv2.imshow("OCR Pipeline", vis)
