@@ -13,9 +13,9 @@ if hasattr(torch.serialization, 'add_safe_globals'):
 @dataclass
 class Detection:
     bbox: tuple[int, int, int, int]  # x1, y1, x2, y2
-    # confidence: float
-    # label: str
-    # crop: np.ndarray  # 추후 엑셀보고 수정
+    confidence: float
+    label: str
+    crop: np.ndarray  # YOLO가 잘라낸 숫자판 이미지
 
 
 class DisplayDetector:

@@ -86,11 +86,15 @@ def test_all(source: str):
     print(f"\n[전체 파이프라인 테스트] {source}  |  종료: q")
     for frame in iter_frames(source):
         dets = detector.detect(frame)
+        frame_state = {}
         for det in dets:
             results = reader.read(det.crop)
-            for res in results:
-                print(f"  bbox={det.bbox}  value={res.value}  "
-                      f"raw='{res.raw_text}'  conf={res.confidence:.2f}")
+            if results:
+                best_res = max(results, key=lambda r: r.confidence)
+                frame_state[det.label] = best_res.value
+            else:
+                frame_state[det.label] = None
+        print(f"  Frame Data: {frame_state}")
         cv2.namedWindow("Pipeline Test", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("Pipeline Test", 1024, 768)
         cv2.imshow("Pipeline Test", detector.draw(frame, dets))
