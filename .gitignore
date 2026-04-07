@@ -12,10 +12,15 @@ __pycache__/
 *.pt
 models/
 output.jsonl
-tests/samples/*.jpg
-tests/samples/*.jpeg
-tests/samples/*.png
-tests/samples/*.mp4
+data/dataset/
+dataset.zip
+debug_seg/
+data/samples/*.mp4
+data/samples/*.png
+data/samples/*.jpg
+
+# Ignore all samples but keep the directory (optional, but user wants to keep them)
+# data/samples/*
 
 # OS / IDE
 .DS_Store
