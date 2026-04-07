@@ -4,3 +4,5 @@ torch
 torchvision
 pyyaml
 numpy
+paddlepaddle
+paddleocr
