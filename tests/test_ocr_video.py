@@ -15,10 +15,10 @@ torch.load = lambda *args, **kwargs: original_load(*args, **{**kwargs, 'weights_
 # ==================================================================
 # 설정 (사용자 조절 가능)
 # ==================================================================
-# 1. 신뢰도 임계값: 너무 민감하면 값을 높이세요 (0.50), 안 잡히면 낮추세요 (0.30)
-CONF_THRESHOLD = 0.45
+# 1. 신뢰도 임계값: 너무 민감하면 값을 높이세요 (0.45), 안 잡히면 낮추세요 (0.30)
+CONF_THRESHOLD = 0.40
 # 2. 비디오 경로: video.mp4 또는 video_compat.mp4
-VIDEO_PATH = "data/samples/video.mp4"
+VIDEO_PATH = "data/samples/video_compat.mp4"
 # ==================================================================
 
 # 1. 모델 및 OCR 엔진 로드
@@ -48,9 +48,9 @@ while cap.isOpened():
         cls_id = int(box.cls[0])
         cls_name = names[cls_id]
         
-        # OCR 수행용 크롭 영역 (안정성을 위해 약간의 마진 추가 가능)
+        # OCR 수행용 크롭 영역
         crop = frame[y1:y2, x1:x2]
-        ocr_res = recognizer.read(crop)
+        ocr_res = recognizer.read(crop, var_name=cls_name)
         
         box_color = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255)][cls_id % 6]
         cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
