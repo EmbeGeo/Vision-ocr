@@ -10,8 +10,8 @@ import zipfile
 # 설정 (사용자 조절 가능)
 # ==================================================================
 OUTPUT_DIR = 'data/dataset'
-BASE_IMAGE = 'data/samples/Full1.png'
-BASE_XML = 'data/samples/Full1.xml'
+BASE_IMAGE = 'data/samples/Full1.jpeg'
+BASE_XML = 'data/samples/Full1box.xml'
 NUM_AUGMENTED = 500  # 생성할 총 이미지 수 (지능형 증강 적용)
 TRAIN_RATIO = 0.8    # 학습 데이터 비율
 # ==================================================================

@@ -60,8 +60,14 @@ for idx, box in enumerate(results[0].boxes):
     # 이미지에는 심플하게 바운딩 박스와 식별용 번호표만 표기 (간섭 방지)
     cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
     label_num = f"[{idx+1}]"
-    cv2.rectangle(img, (x1, y1 - 20), (x1 + 35, y1), box_color, -1)
-    cv2.putText(img, label_num, (x1 + 3, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    
+    # 14, 11, 10, 12 등 위쪽 세그먼트를 가리는 특정 패널만 아래쪽에 부착
+    if idx + 1 in [10, 11, 12, 14]:
+        cv2.rectangle(img, (x1, y2), (x1 + 35, y2 + 20), box_color, -1)
+        cv2.putText(img, label_num, (x1 + 3, y2 + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    else:
+        cv2.rectangle(img, (x1, y1 - 20), (x1 + 35, y1), box_color, -1)
+        cv2.putText(img, label_num, (x1 + 3, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
     
     # 사이드 패널에 변수명 및 판독 결과 깔끔하게 출력
     display_text = f"{label_num} {cls_name}: {ocr_res}"
