@@ -144,7 +144,9 @@ class CnnDigitRecognizer:
             pred = self.predict_digit(digit_crop)
             
             # 'minus' 나 'dot' 폴더명으로 저장되었을 경우를 대비한 변환
-            if pred == 'minus':
+            if pred.lower() == 'no':
+                pass
+            elif pred == 'minus':
                 result_str += '-'
             elif pred == 'dot':
                 result_str += '.'
