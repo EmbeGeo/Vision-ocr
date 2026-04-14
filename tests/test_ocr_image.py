@@ -3,10 +3,11 @@ import cv2
 import torch
 import os
 import sys
+import numpy as np
 
 # 프로젝트 루트 경로 추가 (ocr 모듈 로드용)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ocr.recognizer import DigitRecognizer
+from ocr.cnn_recognizer import CnnDigitRecognizer
 
 # PyTorch 2.6+ 보안 설정 해결
 original_load = torch.load
@@ -20,7 +21,7 @@ CONF_THRESHOLD = 0.40
 
 # 1. 모델 및 OCR 엔진 로드
 model = YOLO('models/best.pt')
-recognizer = DigitRecognizer()
+recognizer = CnnDigitRecognizer()
 names = model.names
 
 def get_color(cls_id):
@@ -28,14 +29,21 @@ def get_color(cls_id):
     return colors[cls_id % len(colors)]
 
 # 2. 이미지 감지 실행
-img_path = 'data/samples/Full1.png'
+img_path = 'data/samples/Full1.jpeg'
 results = model.predict(img_path, conf=CONF_THRESHOLD)
 img = results[0].orig_img.copy()
+h, w, c = img.shape
+
+# 결과 리스트업을 위한 사이드 패널 생성
+side_panel_w = 400
+side_panel = np.ones((h, side_panel_w, 3), dtype=np.uint8) * 40 # Dark grey background
+cv2.putText(side_panel, "OCR Results Panel", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+y_offset = 80
 
 print(f"OCR 판독 시작...")
 
 # 3. 박스 검출 및 OCR 적용
-for box in results[0].boxes:
+for idx, box in enumerate(results[0].boxes):
     x1, y1, x2, y2 = map(int, box.xyxy[0])
     cls_id = int(box.cls[0])
     cls_name = names[cls_id]
@@ -44,30 +52,41 @@ for box in results[0].boxes:
     # 영역 잘라내기 (OCR용)
     crop = results[0].orig_img[y1:y2, x1:x2]
     
-    # OCR 엔진으로 숫자 읽기
-    ocr_res = recognizer.read(crop)
-    
-    # 결과 레이블 구성 (예: pol1_temp_pv: 15.3)
-    display_text = f"{cls_name}: {ocr_res}"
-    print(f"[{cls_name}] 감지됨 -> 판독값: {ocr_res} (신뢰도: {conf:.2f})")
+    # OCR 엔진으로 숫자 읽기 (디버깅을 위해 클래스 이름 전달)
+    ocr_res = recognizer.read(crop, var_name=cls_name)
     
     box_color = get_color(cls_id)
-    cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
     
-    # 텍스트 시각화
+    # 이미지에는 심플하게 바운딩 박스와 식별용 번호표만 표기 (간섭 방지)
+    cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
+    label_num = f"[{idx+1}]"
+    
+    # 14, 11, 10, 12 등 위쪽 세그먼트를 가리는 특정 패널만 아래쪽에 부착
+    if idx + 1 in [10, 11, 12, 14]:
+        cv2.rectangle(img, (x1, y2), (x1 + 35, y2 + 20), box_color, -1)
+        cv2.putText(img, label_num, (x1 + 3, y2 + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    else:
+        cv2.rectangle(img, (x1, y1 - 20), (x1 + 35, y1), box_color, -1)
+        cv2.putText(img, label_num, (x1 + 3, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    
+    # 사이드 패널에 변수명 및 판독 결과 깔끔하게 출력
+    display_text = f"{label_num} {cls_name}: {ocr_res}"
+    print(f"{label_num} [{cls_name}] 감지됨 -> 판독값: {ocr_res} (신뢰도: {conf:.2f})")
+    
     font_scale = 0.5
     thickness = 1
-    (tw, th), baseline = cv2.getTextSize(display_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+    # 컬러 박스 (범례 역할)
+    cv2.rectangle(side_panel, (15, y_offset - 12), (22, y_offset - 5), box_color, -1)
+    # 텍스트 출력
+    cv2.putText(side_panel, display_text, (30, y_offset), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
     
-    # 레이블 위치 결정
-    text_y = y2 + th + 10 if "sv" in cls_name.lower() else y1 - 10
-    
-    # 배경 및 텍스트 출력
-    cv2.rectangle(img, (x1, text_y - th - 5), (x1 + tw + 5, text_y + baseline), box_color, -1)
-    cv2.putText(img, display_text, (x1, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness)
+    y_offset += 30
+
+# 붙이기
+final_img = np.hstack((img, side_panel))
 
 # 4. 결과 출력
-cv2.imshow("YOLO + Industrial 7-Segment OCR", img)
+cv2.imshow("Dashboard Monitor & Output", final_img)
 print("\n아무 키나 누르면 종료됩니다.")
 cv2.waitKey(0)
 cv2.destroyAllWindows()
