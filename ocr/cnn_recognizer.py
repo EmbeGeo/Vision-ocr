@@ -158,5 +158,16 @@ class CnnDigitRecognizer:
                 result_str += '.'
             else:
                 result_str += str(pred)
+        
+        # [소수점 후처리] 특정 변수는 소수점 포함 포맷 강제 적용
+        # CNN이 소수점을 인식 못 했을 경우 끝에서 한 자리 앞에 강제 삽입
+        DECIMAL_CLASSES = {'pol2_press', 'iso_press'}
+        if var_name in DECIMAL_CLASSES:
+            # 숫자만 추출 (부호 제외)
+            digits_only = result_str.replace('-', '').replace('.', '')
+            if '.' not in result_str and len(digits_only) >= 2:
+                # "153" → "15.3", "59" → "5.9"
+                result_str = digits_only[:-1] + '.' + digits_only[-1]
                 
         return result_str
+

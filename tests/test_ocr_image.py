@@ -61,13 +61,16 @@ for idx, box in enumerate(results[0].boxes):
     cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
     label_num = f"[{idx+1}]"
     
-    # 14, 11, 10, 12 등 위쪽 세그먼트를 가리는 특정 패널만 아래쪽에 부착
-    if idx + 1 in [10, 11, 12, 14]:
-        cv2.rectangle(img, (x1, y2), (x1 + 35, y2 + 20), box_color, -1)
-        cv2.putText(img, label_num, (x1 + 3, y2 + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-    else:
+    # 라벨을 바운딩 박스 밖에 배치 (세그먼트 가림 방지)
+    # 박스 위에 공간이 충분하면 위, 없으면 아래에 부착
+    if y1 >= 22:
+        # 위쪽에 배치
         cv2.rectangle(img, (x1, y1 - 20), (x1 + 35, y1), box_color, -1)
         cv2.putText(img, label_num, (x1 + 3, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    else:
+        # 아래쪽에 배치 (위 공간 부족 시)
+        cv2.rectangle(img, (x1, y2), (x1 + 35, y2 + 20), box_color, -1)
+        cv2.putText(img, label_num, (x1 + 3, y2 + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
     
     # 사이드 패널에 변수명 및 판독 결과 깔끔하게 출력
     display_text = f"{label_num} {cls_name}: {ocr_res}"

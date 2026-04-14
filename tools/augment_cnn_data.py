@@ -65,8 +65,8 @@ def main():
     # 기존 데이터 초기화 (완전 교체)
     for d in [train_dir, val_dir]:
         if os.path.exists(d):
-            shutil.rmtree(d)
-        os.makedirs(d)
+            shutil.rmtree(d, ignore_errors=True)
+        os.makedirs(d, exist_ok=True)
 
     classes = [d for d in os.listdir(classified_dir) if os.path.isdir(os.path.join(classified_dir, d))]
     

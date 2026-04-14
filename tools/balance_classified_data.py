@@ -67,33 +67,28 @@ def main():
     
     for cls in DIGIT_PATTERNS.keys():
         cls_path = os.path.join(base_dir, cls)
-        if not os.path.exists(cls_path):
-            os.makedirs(cls_path)
-            
-        current_files = [f for f in os.listdir(cls_path) if f.lower().endswith(('.png', '.jpg'))]
-        current_count = len(current_files)
         
-        print(f"Class '{cls}': Current {current_count} files.")
-        
-        if current_count > target_count:
-            # 1. 초과분 삭제 (랜덤 선택)
-            to_remove = random.sample(current_files, current_count - target_count)
-            for f in to_remove:
+        # 1. 기존 이미지 전부 삭제
+        if os.path.exists(cls_path):
+            existing = [f for f in os.listdir(cls_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            for f in existing:
                 os.remove(os.path.join(cls_path, f))
-            print(f"  -> Trimmed {len(to_remove)} files. (Now {target_count})")
-            
-        elif current_count < target_count:
-            # 2. 부족분 생성
-            num_to_create = target_count - current_count
-            pattern = DIGIT_PATTERNS[cls]
-            for i in range(num_to_create):
-                img = draw_segments(pattern)
-                img = apply_random_transforms(img)
-                uid = uuid.uuid4().hex[:6]
-                cv2.imwrite(os.path.join(cls_path, f"balanced_synth_{uid}.png"), img)
-            print(f"  -> Generated {num_to_create} synthetic files. (Now {target_count})")
+            print(f"Class '{cls}': Deleted {len(existing)} existing files.")
         else:
-            print(f"  -> Already balanced.")
+            os.makedirs(cls_path)
+            print(f"Class '{cls}': Created folder.")
+        
+        # 2. 새로운 가상 이미지 생성 (target_count장)
+        pattern = DIGIT_PATTERNS[cls]
+        for i in range(target_count):
+            img = draw_segments(pattern)
+            img = apply_random_transforms(img)
+            uid = uuid.uuid4().hex[:6]
+            cv2.imwrite(os.path.join(cls_path, f"synth_{uid}.png"), img)
+        
+        print(f"  -> Generated {target_count} fresh synthetic images.")
+    
+    print(f"\n[완료] 모든 클래스의 데이터를 순수 가상 이미지 {target_count}장으로 교체했습니다.")
 
 if __name__ == '__main__':
     main()
