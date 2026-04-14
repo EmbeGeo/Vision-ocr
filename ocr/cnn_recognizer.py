@@ -117,7 +117,11 @@ class CnnDigitRecognizer:
         
         with torch.no_grad():
             outputs = self.model(tensor)
-            _, predicted = torch.max(outputs.data, 1)
+            probs = torch.softmax(outputs, dim=1)
+            confidence, predicted = torch.max(probs, 1)
+            
+        if confidence.item() < 0.5:
+            return "?"
             
         class_idx = predicted.item()
         return self.idx_to_class[class_idx]
@@ -129,6 +133,7 @@ class CnnDigitRecognizer:
         # 다중 임계값 대신 고정 임계값으로 빠른 분리 처리
         t_val = 140
         thresh = self.get_binary_image(crop, t_val)
+        
         zones = self.split_digits(thresh)
         
         result_str = ""
@@ -143,8 +148,9 @@ class CnnDigitRecognizer:
                 
             pred = self.predict_digit(digit_crop)
             
-            # 'minus' 나 'dot' 폴더명으로 저장되었을 경우를 대비한 변환
-            if pred.lower() == 'no':
+            if pred == "?":
+                pass
+            elif pred.lower() == 'no':
                 pass
             elif pred == 'minus':
                 result_str += '-'
