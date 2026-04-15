@@ -1,47 +1,9 @@
 import os
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-
-class OcrDigitCNN(nn.Module):
-    """
-    산업용 7세그먼트 및 숫자 판독을 위한 경량 CNN 모델
-    입력 해상도: 32x32 (단일 채널 GrayScale)
-    """
-    def __init__(self, num_classes=11):
-        super(OcrDigitCNN, self).__init__()
-        # Input layer: [batch_size, 1, 32, 32]
-        self.features = nn.Sequential(
-            nn.Conv2d(1, 16, kernel_size=3, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2), # Output: [16, 16, 16]
-            
-            nn.Conv2d(16, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2), # Output: [32, 8, 8]
-            
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2)  # Output: [64, 4, 4]
-        )
-        
-        self.classifier = nn.Sequential(
-            nn.Linear(64 * 4 * 4, 128),
-            nn.ReLU(),
-            nn.Dropout(0.4),
-            nn.Linear(128, num_classes)
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), -1) # Flatten
-        x = self.classifier(x)
-        return x
+from ocr.cnn_recognizer import OcrDigitCNN
 
 def main():
     base_dir = '../data/cnn_dataset' if os.path.exists('../data/cnn_dataset') else 'data/cnn_dataset'

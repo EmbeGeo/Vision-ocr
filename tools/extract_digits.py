@@ -2,7 +2,6 @@ import os
 import cv2
 import sys
 import uuid
-import numpy as np
 from ultralytics import YOLO
 
 # 프로젝트 루트 경로 추가
@@ -13,15 +12,6 @@ from ocr.recognizer import DigitRecognizer
 import torch
 original_load = torch.load
 torch.load = lambda *args, **kwargs: original_load(*args, **{**kwargs, 'weights_only': False})
-
-def split_equally(crop, num_digits):
-    """균등 분할 방식 (필요시 사용)"""
-    h, w, _ = crop.shape
-    w_step = w // num_digits
-    crops = []
-    for i in range(num_digits):
-        crops.append(crop[:, i*w_step:(i+1)*w_step])
-    return crops
 
 def main():
     model_path = '../models/best.pt' if os.path.exists('../models/best.pt') else 'models/best.pt'
@@ -67,8 +57,6 @@ def main():
             # 잘라낸 개별 숫자를 추출하여 저장 (회색조로 저장하는 것이 CNN에 더 유리할 수 있음)
             gray_crop = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
             
-            # 균등 분할을 원할 경우 len(zones)를 기반으로 split_equally를 호출하도록 수정 가능
-            # 현재는 기존 투영법 경계로 자름
             for (sx, ex) in zones:
                 w_segment = ex - sx
                 
