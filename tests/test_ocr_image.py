@@ -7,7 +7,7 @@ import numpy as np
 
 # 프로젝트 루트 경로 추가 (ocr 모듈 로드용)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ocr.cnn_recognizer import CnnDigitRecognizer
+from ocr.easyocr_recognizer import EasyOcrRecognizer
 
 # PyTorch 2.6+ 보안 설정 해결
 original_load = torch.load
@@ -21,7 +21,7 @@ CONF_THRESHOLD = 0.40
 
 # 1. 모델 및 OCR 엔진 로드
 model = YOLO('models/best.pt')
-recognizer = CnnDigitRecognizer()
+recognizer = EasyOcrRecognizer()
 names = model.names
 
 def get_color(cls_id):
@@ -53,7 +53,7 @@ for idx, box in enumerate(results[0].boxes):
     crop = results[0].orig_img[y1:y2, x1:x2]
     
     # OCR 엔진으로 숫자 읽기 (디버깅을 위해 클래스 이름 전달)
-    ocr_res = recognizer.read(crop, var_name=cls_name)
+    ocr_res = recognizer.read(crop, var_name=cls_name, box_idx=idx+1)
     
     box_color = get_color(cls_id)
     
@@ -61,16 +61,11 @@ for idx, box in enumerate(results[0].boxes):
     cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
     label_num = f"[{idx+1}]"
     
-    # 라벨을 바운딩 박스 밖에 배치 (세그먼트 가림 방지)
-    # 박스 위에 공간이 충분하면 위, 없으면 아래에 부착
-    if y1 >= 22:
-        # 위쪽에 배치
-        cv2.rectangle(img, (x1, y1 - 20), (x1 + 35, y1), box_color, -1)
-        cv2.putText(img, label_num, (x1 + 3, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-    else:
-        # 아래쪽에 배치 (위 공간 부족 시)
-        cv2.rectangle(img, (x1, y2), (x1 + 35, y2 + 20), box_color, -1)
-        cv2.putText(img, label_num, (x1 + 3, y2 + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    # 라벨을 박스 근처에 텍스트만 표시 (배경 채움 제거하여 다른 세그먼트 가림 완벽 방지)
+    text_y = y1 - 5 if y1 >= 22 else y2 + 15
+    # 테두리 효과 (가독성 확보)
+    cv2.putText(img, label_num, (x1 + 2, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+    cv2.putText(img, label_num, (x1 + 2, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, box_color, 1)
     
     # 사이드 패널에 변수명 및 판독 결과 깔끔하게 출력
     display_text = f"{label_num} {cls_name}: {ocr_res}"

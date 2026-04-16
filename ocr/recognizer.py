@@ -91,7 +91,7 @@ class DigitRecognizer:
                 
         return self.segments_map.get(tuple(active), "?")
 
-    def read(self, crop, var_name="unknown"):
+    def read(self, crop, var_name="unknown", box_idx=None):
         """앙상블 판독 (여러 임계값으로 시도하여 다수결 선택)"""
         if crop is None or crop.size == 0: return ""
         

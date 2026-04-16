@@ -126,12 +126,12 @@ class CnnDigitRecognizer:
         class_idx = predicted.item()
         return self.idx_to_class[class_idx]
         
-    def read(self, crop, var_name="unknown"):
+    def read(self, crop, var_name="unknown", box_idx=None):
         """입력된 크롭 이미지(바운딩 박스)에서 전체 문자열 반환"""
         if crop is None or crop.size == 0: return ""
         
         # 다중 임계값 대신 고정 임계값으로 빠른 분리 처리
-        t_val = 140
+        t_val = 150 if box_idx in [6, 7, 8, 9, 13, 14] else 140
         thresh = self.get_binary_image(crop, t_val)
         
         zones = self.split_digits(thresh)

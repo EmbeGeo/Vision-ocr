@@ -6,8 +6,6 @@ import cv2
 import torch
 from ultralytics import YOLO
 
-import label_placement
-
 # 프로젝트 루트 경로 추가 (OCR 옵션 사용 시)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -36,7 +34,7 @@ def get_color(cls_id):
 
 def main():
     parser = argparse.ArgumentParser(description="YOLO 비디오 감지 테스트")
-    parser.add_argument("--video", default="data/samples/video_compat.mp4", help="입력 비디오 경로")
+    parser.add_argument("--video", default="data/samples/test_video.mp4", help="입력 비디오 경로")
     parser.add_argument("--conf", type=float, default=0.40, help="감지 confidence threshold")
     parser.add_argument("--ocr", action="store_true", help="박스 내부 값 OCR까지 함께 수행")
     args = parser.parse_args()
@@ -46,17 +44,13 @@ def main():
 
     recognizer = None
     if args.ocr:
-        from ocr.cnn_recognizer import CnnDigitRecognizer
-
-        recognizer = CnnDigitRecognizer()
+        from ocr.easyocr_recognizer import EasyOcrRecognizer
+        recognizer = EasyOcrRecognizer()
 
     video_path = args.video
-    if (
-        video_path == "data/samples/video_compat.mp4"
-        and not os.path.exists(video_path)
-        and os.path.exists("data/samples/video.mp4")
-    ):
-        video_path = "data/samples/video.mp4"
+    if not os.path.exists(video_path):
+        print(f"Error: {video_path} 비디오 파일을 찾을 수 없습니다.")
+        return
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -91,20 +85,17 @@ def main():
                 label = f"{cls_name}: {ocr_res}"
             dets.append((x1, y1, x2, y2, cls_id, cls_name, label))
 
-        boxes_xyxy = [(d[0], d[1], d[2], d[3]) for d in dets]
-        placed_labels: list[tuple[int, int, int, int]] = []
-
         for i, (x1, y1, x2, y2, cls_id, cls_name, label) in enumerate(dets):
             box_color = get_color(cls_id)
             cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
-            (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_thickness)
-            prefer_below = "sv" in cls_name.lower()
-            bg_rect, text_org = label_placement.pick_text_label_rect(
-                x1, y1, x2, y2, tw, th, baseline, fw, fh, boxes_xyxy, i, placed_labels, prefer_below
-            )
-            placed_labels.append(bg_rect)
-            cv2.rectangle(frame, (bg_rect[0], bg_rect[1]), (bg_rect[2], bg_rect[3]), box_color, -1)
-            cv2.putText(frame, label, text_org, cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), text_thickness)
+            
+            # 라벨을 바운딩 박스 밖에 배치 (세그먼트 가림 방지)
+            if y1 >= 22:
+                cv2.rectangle(frame, (x1, y1 - 20), (x1 + int(len(label)*8.5), y1), box_color, -1)
+                cv2.putText(frame, label, (x1 + 3, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), text_thickness)
+            else:
+                cv2.rectangle(frame, (x1, y2), (x1 + int(len(label)*8.5), y2 + 20), box_color, -1)
+                cv2.putText(frame, label, (x1 + 3, y2 + 14), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), text_thickness)
 
         window_name = "YOLO Video Test + OCR" if args.ocr else "YOLO Video Test"
         cv2.imshow(window_name, frame)
