@@ -1,60 +1,82 @@
-# 📊 Dashboard Variable Detection (YOLOv8)
+# Dashboard Variable Detection (YOLOv8 + OCR)
 
-이 프로젝트는 산업용 계기판(대시보드)에서 각종 변수(PV, SV, 압축기 상태 등)를 자동으로 감지하기 위한 YOLOv8 기반의 딥러닝 솔루션입니다.
+산업용 계기판(대시보드)에서 변수(PV, SV, 압력 등)를 감지하고, 필요 시 숫자 OCR까지 수행하는 프로젝트입니다.
 
-## 📁 주요 폴더 및 파일 구조
+## 프로젝트 구조
 
--   `data/`
-    -   `dataset/`: YOLOv8 학습을 위한 정규화된 데이터셋 (이미지 및 라벨)
-    -   `samples/`: 데이터 증강의 기반이 되는 원본 이미지(`Full1.png`)와 VOC XML(`Full1.xml`)
--   `models/`: 학습 완료된 가중치 파일 (`best.pt`) 보관
--   `tests/`: 모델의 성능을 즉시 확인할 수 있는 테스트 스크립트
-    -   `test_image.py`: 단일 이미지 내 변수 감지 및 시각화
-    -   `test_video.py`: 비디오 파일 실시간 감지 및 시각화
--   `prepare_dataset.py`: VOC XML 기반의 자동 데이터 증강(Augmentation) 및 데이터셋 패키징 도구
--   `colab_train.ipynb`: 구글 코랩(Google Colab)에서 원클릭으로 학습을 진행할 수 있는 노트북
--   `requirements.txt`: 프로젝트 실행에 필요한 파이썬 패키지 목록
--   `dataset.zip`: 코랩 학습을 위해 준비된 압축 데이터셋
+- `data/`
+  - `samples/`: 테스트용 입력 샘플(이미지/XML)
+  - `dataset/`, `cnn_dataset/`: 저장소에 포함하지 않는 재생성 대상 데이터
+- `models/`: 학습된 가중치(`best.pt`, `cnn_digit_best.pth`)
+- `tests/`
+  - `test_ocr_image.py`: 이미지 감지 + OCR 결과 패널 표시
+  - `test_video.py`: 비디오 감지 (옵션으로 OCR on/off)
+- `tools/`
+  - `extract_digits.py`: 샘플 이미지에서 숫자 crop 추출
+  - `balance_classified_data.py`: 7-segment 합성 이미지 생성
+  - `augment_cnn_data.py`: `classified` 기반 train/val 데이터셋 생성
+  - `train_cnn.py`: CNN OCR 학습
+- `prepare_dataset.py`: YOLO 데이터셋 생성/패키징
 
-## 🛠️ 환경 구축 (Setup)
-
-가상환경을 생성하고 필요한 패키지를 설치합니다.
+## 환경 설정
 
 ```bash
-# 1. 가상환경 생성 및 활성화
 python3 -m venv venv
 source venv/bin/activate
-
-# 2. 필수 패키지 설치
 pip install -r requirements.txt
 ```
 
-## 🚀 사용법 (Usage)
+## 빠른 실행 가이드
 
-### 1. 감지 테스트
-학습된 `models/best.pt` 가중치를 사용하여 감지 결과를 확인합니다.
-
-```bash
-# 이미지 테스트 (윈도우 창으로 결과 표시)
-python tests/test_image.py
-
-# 비디오 테스트 (실시간 재생 모드)
-python tests/test_video.py
-```
-
-### 2. 데이터 증강 및 학습 준비
-적은 수의 샘플로 대량의 학습 데이터를 생성하고 코랩용 패키지를 만듭니다.
+### 1) YOLO 감지만 확인
 
 ```bash
-# 실행 시 data/dataset을 200장 규모로 채우고 dataset.zip을 생성합니다.
-python prepare_dataset.py
+python tests/test_video.py --conf 0.40
 ```
 
-### 3. 모델 학습 (Google Colab)
-1. `colab_train.ipynb`를 구글 코랩에서 엽니다.
-2. `dataset.zip` 파일을 업로드한 후 노트북의 안내에 따라 학습을 진행합니다.
+- 기본 비디오는 `data/samples/video_compat.mp4`를 우선 사용합니다.
+- 해당 파일이 없으면 자동으로 `data/samples/video.mp4`를 시도합니다.
 
-## 💡 주요 특징
--   **가독성 특화 시각화**: `sv` 변수의 레이블은 값을 가리지 않도록 하단에 표기됩니다.
--   **오탐지 제어**: `test_image.py` 등의 상단에서 `CONF_THRESHOLD`를 조절하여 감도를 변경할 수 있습니다.
--   **변수별 색상**: 각 변수 클래스마다 고유한 색상의 박스가 할당되어 구분이 쉽습니다.
+### 2) YOLO + OCR 함께 확인
+
+```bash
+python tests/test_video.py --ocr --conf 0.40
+```
+
+- OCR은 `models/cnn_digit_best.pth`가 있어야 동작합니다.
+- 값이 비정상적으로 흔들리면 `--conf`를 올려 오탐지를 줄이세요.
+
+### 3) 이미지 대시보드 방식 확인
+
+```bash
+python tests/test_ocr_image.py
+```
+
+## OCR 데이터 생성/학습 파이프라인
+
+`data/cnn_dataset`은 저장소에서 제외되므로 아래 순서로 로컬 재생성합니다.
+
+```bash
+# 1) 샘플 이미지에서 숫자 crop 추출
+python tools/extract_digits.py
+
+# 2) 추출 결과를 수동 분류 (data/cnn_dataset/classified/{0..9,minus,dot,...})
+
+# 3) 클래스 균형용 합성 이미지 추가 (선택)
+python tools/balance_classified_data.py
+
+# 4) train/val 증강 데이터 생성
+python tools/augment_cnn_data.py
+
+# 5) CNN 학습
+python tools/train_cnn.py
+```
+
+## 데이터/용량 정책
+
+- 대용량 산출물(`data/dataset`, `data/cnn_dataset`, `*.cache`, 실험 산출 디렉터리)은 `.gitignore`로 제외합니다.
+- 장기 보관이 필요한 데이터는 별도 스토리지(artifact bucket, release asset 등)에 보관하세요.
+
+## 참고
+
+- 히스토리 경량화를 위해 과거 대용량 데이터(`data/cnn_dataset`, `data/images` 등)는 Git 히스토리에서 제거되었습니다.

@@ -7,17 +7,15 @@ env/
 __pycache__/
 *.py[cod]
 *.pyo
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
 
 # Models & Data
 *.pt
 models/
 output.jsonl
 data/dataset/
-dataset.zip
-debug_seg/
-data/samples/*.mp4
-data/samples/*.png
-data/samples/*.jpg
 
 # Ignore all samples but keep the directory (optional, but user wants to keep them)
 # data/samples/*
