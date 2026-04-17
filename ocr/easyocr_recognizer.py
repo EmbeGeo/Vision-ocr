@@ -2,6 +2,7 @@ import cv2
 import easyocr
 import warnings
 import numpy as np
+import torch
 
 class EasyOcrRecognizer:
     """
@@ -13,8 +14,8 @@ class EasyOcrRecognizer:
         warnings.filterwarnings("ignore", category=UserWarning)
         
         print("[System] EasyOCR 모델 초기화 중... (최초 실행 시 모델 다운로드에 약간의 시간이 소요될 수 있습니다)")
-        # 숫자 인식을 위해 영어('en') 언어 로드. GPU 가속(True) 자동 감지
-        self.reader = easyocr.Reader(['en'], gpu=True)
+        # 숫자 인식을 위해 영어('en') 언어 로드. GPU 가속 자동 감지
+        self.reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
         
     def read(self, crop, var_name="unknown", box_idx=None):
         if crop is None or crop.size == 0:
@@ -84,7 +85,7 @@ class EasyOcrRecognizer:
         result_str = "".join(results)
         
         # 소수점 누락에 대비한 기존 포맷 보정 로직 유지
-        DECIMAL_CLASSES = {'pol2_press', 'iso_press'}
+        DECIMAL_CLASSES = {'pol1_press', 'pol2_press', 'iso_press'}
         if var_name in DECIMAL_CLASSES:
             digits_only = result_str.replace('-', '').replace('.', '')
             if '.' not in result_str:

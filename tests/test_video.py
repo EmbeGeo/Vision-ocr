@@ -1,17 +1,16 @@
 import argparse
-import os
 import sys
+import os
+from pathlib import Path
 
 import cv2
-import torch
 from ultralytics import YOLO
 
-# 프로젝트 루트 경로 추가 (OCR 옵션 사용 시)
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 프로젝트 루트 경로 설정
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT))
 
-# PyTorch 2.6+ 보안 설정(weights_only)으로 인한 모델 로딩 실패 해결
-original_load = torch.load
-torch.load = lambda *args, **kwargs: original_load(*args, **{**kwargs, "weights_only": False})
+import ocr.compat  # noqa: F401  # PyTorch 2.6+ 호환성 패치
 
 
 def get_color(cls_id):
@@ -34,12 +33,12 @@ def get_color(cls_id):
 
 def main():
     parser = argparse.ArgumentParser(description="YOLO 비디오 감지 테스트")
-    parser.add_argument("--video", default="data/samples/test_video.mp4", help="입력 비디오 경로")
+    parser.add_argument("--video", default=str(ROOT / 'data' / 'samples' / 'test_video.mp4'), help="입력 비디오 경로")
     parser.add_argument("--conf", type=float, default=0.40, help="감지 confidence threshold")
     parser.add_argument("--ocr", action="store_true", help="박스 내부 값 OCR까지 함께 수행")
     args = parser.parse_args()
 
-    model = YOLO("models/best.pt")
+    model = YOLO(str(ROOT / 'models' / 'best.pt'))
     names = model.names
 
     recognizer = None
@@ -66,7 +65,6 @@ def main():
 
         results = model.predict(frame, conf=args.conf, verbose=False)
 
-        fh, fw = frame.shape[:2]
         font_scale = 0.4
         text_thickness = 1
 
@@ -88,7 +86,7 @@ def main():
         for i, (x1, y1, x2, y2, cls_id, cls_name, label) in enumerate(dets):
             box_color = get_color(cls_id)
             cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
-            
+
             # 라벨을 바운딩 박스 밖에 배치 (세그먼트 가림 방지)
             if y1 >= 22:
                 cv2.rectangle(frame, (x1, y1 - 20), (x1 + int(len(label)*8.5), y1), box_color, -1)

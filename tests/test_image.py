@@ -1,10 +1,15 @@
+import sys
+import os
+from pathlib import Path
+
 from ultralytics import YOLO
 import cv2
-import torch
 
-# PyTorch 2.6+ 보안 설정(weights_only)으로 인한 모델 로딩 실패 해결을 위한 몽키패치
-original_load = torch.load
-torch.load = lambda *args, **kwargs: original_load(*args, **{**kwargs, 'weights_only': False})
+# 프로젝트 루트 경로 설정
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT))
+
+import ocr.compat  # noqa: F401  # PyTorch 2.6+ 호환성 패치
 
 # ==================================================================
 # 설정 (사용자 조절 가능)
@@ -16,7 +21,7 @@ CONF_THRESHOLD = 0.40
 # ==================================================================
 
 # 1. 모델 로드 (models/best.pt)
-model = YOLO('models/best.pt')
+model = YOLO(str(ROOT / 'models' / 'best.pt'))
 names = model.names
 
 def get_color(cls_id):
@@ -28,7 +33,7 @@ def get_color(cls_id):
     return colors[cls_id % len(colors)]
 
 # 2. 이미지 감지 실행
-img_path = 'data/samples/Full1.png'
+img_path = str(ROOT / 'data' / 'samples' / 'Full1.png')
 results = model.predict(img_path, conf=CONF_THRESHOLD)
 
 # 3. 직접 시각화 (가독성 개선 및 레이블 위치 조정)
@@ -39,29 +44,29 @@ for box in results[0].boxes:
     cls_id = int(box.cls[0])
     cls_name = names[cls_id]
     conf = float(box.conf[0])
-    
+
     label = f"{cls_name} ({conf:.2f})"
-    
+
     # 변수별 고유 색상 가져오기
     box_color = get_color(cls_id)
-    
+
     # 1. 박스 그리기
     cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
-    
+
     # 2. 텍스트 설정
     font_scale = 0.4
     text_thickness = 1
     (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_thickness)
-    
+
     # 3. 레이블 위치 결정: 'sv'가 포함되어 있으면 하단, 아니면 상단
     if "sv" in cls_name.lower():
         text_y = y2 + th + 5
     else:
         text_y = y1 - 5
-        
+
     # 4. 텍스트 배경 (박스 색상과 동일하게 설정하여 구분)
     cv2.rectangle(img, (x1, text_y - th - 5), (x1 + tw, text_y + baseline), box_color, -1)
-    
+
     # 5. 텍스트 쓰기 (검은색 글자)
     cv2.putText(img, label, (x1, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), text_thickness)
 

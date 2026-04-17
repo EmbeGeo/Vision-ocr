@@ -1,13 +1,21 @@
 import cv2
 import numpy as np
 import os
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+
 
 class DigitRecognizer:
-    """산업용 7세그먼트 전용 OCR 엔진 (Template Matching + Multi-threshold)"""
-    
+    """산업용 7세그먼트 전용 OCR 엔진 (Template Matching + Multi-threshold)
+
+    .. deprecated::
+        EasyOcrRecognizer로 대체되었습니다. ocr/legacy/ 폴더에 보관됩니다.
+    """
+
     def __init__(self, debug=True):
         self.debug = debug
-        self.debug_dir = "data/debug_ocr"
+        self.debug_dir = str(_PROJECT_ROOT / "data" / "debug_ocr")
         if self.debug and not os.path.exists(self.debug_dir):
             os.makedirs(self.debug_dir)
             
