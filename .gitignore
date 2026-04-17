@@ -16,18 +16,6 @@ __pycache__/
 models/
 output.jsonl
 data/dataset/
-data/cnn_dataset/
-dataset.zip
-debug_seg/
-*.cache
-data/samples/*.mp4
-data/samples/*.png
-data/samples/*.jpg
-runs/
-outputs/
-artifacts/
-checkpoints/
-weights/
 
 # Ignore all samples but keep the directory (optional, but user wants to keep them)
 # data/samples/*
