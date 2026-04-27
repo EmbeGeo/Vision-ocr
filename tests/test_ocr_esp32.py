@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 import cv2
 import numpy as np
-import socket
 import threading
 import queue
 import time
@@ -18,90 +17,51 @@ sys.path.insert(0, str(ROOT))
 import ocr.compat  # noqa: F401  # PyTorch 2.6+ 호환성 패치
 from ocr.easyocr_recognizer import EasyOcrRecognizer
 
-def get_local_ip():
-    """PC의 로컬 IP 주소를 가져옵니다."""
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
 
-class VideoReceiverServer:
-    """ESP32-CAM에서 보낸 영상을 받아 최신 프레임을 유지하는 소켓 서버"""
-    def __init__(self, port=5000):
-        self.port = port
+class VideoPullClient:
+    """ESP32-CAM의 HTTP MJPEG 스트림에 접속하여 최신 프레임을 유지하는 클라이언트"""
+    def __init__(self, ip, port=80, stream_path="/stream"):
+        if ip.startswith("http://") or ip.startswith("https://"):
+            self.url = ip
+        else:
+            self.url = f"http://{ip}:{port}{stream_path}"
         self.frame = None
         self.stopped = False
-        self.status = "Waiting for connection..."
-        self.server_socket = None
+        self.status = f"Connecting to {self.url}..."
+        self.cap = None
 
     def start(self):
-        self.thread = threading.Thread(target=self._run_server, daemon=True)
+        self.thread = threading.Thread(target=self._run_client, daemon=True)
         self.thread.start()
         return self
 
-    def _run_server(self):
-        try:
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.server_socket.bind(('', self.port))
-            self.server_socket.listen(1)
-            self.server_socket.settimeout(1.0) # 주기적으로 stopped 체크를 위해
-
-            print(f"[Receiver] 서버 대기 중... 포트: {self.port}")
-            
-            while not self.stopped:
-                try:
-                    conn, addr = self.server_socket.accept()
-                    print(f"[Receiver] 연결됨: {addr}")
-                    self.status = f"Connected to {addr[0]}"
-                    self._handle_client(conn)
-                except socket.timeout:
-                    continue
-                except Exception as e:
-                    if not self.stopped:
-                        print(f"[Receiver] Accept Error: {e}")
-        except Exception as e:
-            self.status = f"Server Error: {e}"
-            print(f"[Receiver] {self.status}")
-
-    def _handle_client(self, conn):
-        bytes_data = b''
-        try:
-            while not self.stopped:
-                chunk = conn.recv(4096)
-                if not chunk:
-                    print("[Receiver] 연결 종료")
-                    break
+    def _run_client(self):
+        while not self.stopped:
+            try:
+                if self.cap is None or not self.cap.isOpened():
+                    self.status = f"Connecting to {self.url}..."
+                    self.cap = cv2.VideoCapture(self.url)
+                    # 타임아웃 설정을 위해 FFmpeg 전용 옵션을 고려할 수 있으나 기본으로 시작
                 
-                bytes_data += chunk
-                # MJPEG/JPEG 스타일의 경계 탐색 (FFD8 ~ FFD9)
-                a = bytes_data.find(b'\xff\xd8')
-                b = bytes_data.find(b'\xff\xd9')
-                
-                if a != -1 and b != -1:
-                    jpg = bytes_data[a:b+2]
-                    bytes_data = bytes_data[b+2:]
-                    
-                    new_frame = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
-                    if new_frame is not None:
-                        self.frame = new_frame
-        except Exception as e:
-            print(f"[Receiver] Client Handler Error: {e}")
-        finally:
-            conn.close()
-            self.status = "Disconnected. Waiting..."
+                success, frame = self.cap.read()
+                if success:
+                    self.frame = frame
+                    self.status = "Streaming Active"
+                else:
+                    self.status = "Stream lost. Reconnecting..."
+                    self.cap.release()
+                    time.sleep(1.0)
+            except Exception as e:
+                self.status = f"Error: {e}"
+                time.sleep(2.0)
 
     def read(self):
         return self.frame
 
     def stop(self):
         self.stopped = True
-        if self.server_socket:
-            self.server_socket.close()
+        if self.cap:
+            self.cap.release()
 
 class ValueStabilizer:
     def __init__(self, buffer_size=5):
@@ -117,19 +77,13 @@ class ValueStabilizer:
         return self.stable_value
 
 def main():
-    parser = argparse.ArgumentParser(description="ESP32-CAM OCR 수신 서버")
-    parser.add_argument("--port", type=int, default=5000, help="수신 포트 (기본: 5000)")
+    parser = argparse.ArgumentParser(description="ESP32-CAM OCR 수신 클라이언트 (Pull)")
+    parser.add_argument("--ip", type=str, required=True, help="ESP32-CAM의 IP 주소")
+    parser.add_argument("--port", type=int, default=80, help="ESP32 웹 서버 포트 (기본: 80)")
+    parser.add_argument("--path", type=str, default="/stream", help="스트림 경로 (기본: /stream)")
     parser.add_argument("--conf", type=float, default=0.5, help="YOLO 감지 임계값")
     parser.add_argument("--skip", type=int, default=5, help="OCR 판독 간격")
     args = parser.parse_args()
-
-    local_ip = get_local_ip()
-    print("=" * 50)
-    print(f" [ESP32 설정용 정보]")
-    print(f" PC IP 주소: {local_ip}")
-    print(f" 포트 번호: {args.port}")
-    print(f" ESP32 코드에 위 주소를 입력하여 데이터를 전송하세요.")
-    print("=" * 50)
 
     # 1. 모델 로딩
     print("[System] 모델 로딩 중...")
@@ -157,12 +111,17 @@ def main():
                 ocr_queue.task_done()
 
     threading.Thread(target=ocr_worker, daemon=True).start()
+
+    # 2. 클라이언트 시작
+    receiver = VideoPullClient(args.ip, args.port, args.path).start()
     
-    # 2. 서버 시작
-    receiver = VideoReceiverServer(args.port).start()
+    print("=" * 50)
+    print(f" [ESP32 접속 정보]")
+    print(f" 최종 URL: {receiver.url}")
+    print("=" * 50)
     
     frame_count = 0
-    print("\n[System] 수신 대기 시작 (종료: 'q')")
+    print("\n[System] 스트림 수신 대기 시작 (종료: 'q')")
     
     try:
         while True:
@@ -171,7 +130,7 @@ def main():
                 # 대기 화면
                 bg = np.zeros((480, 640, 3), dtype=np.uint8)
                 cv2.putText(bg, receiver.status, (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                cv2.putText(bg, f"IP: {local_ip} | Port: {args.port}", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+                cv2.putText(bg, f"Connecting to http://{args.ip}:{args.port}{args.path}", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
                 cv2.imshow("ESP32 OCR Server", bg)
                 if cv2.waitKey(100) & 0xFF == ord('q'): break
                 continue
