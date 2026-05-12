@@ -93,17 +93,17 @@ pip install easyocr
 python main.py --ip 192.168.0.100
 
 # 결과를 외부 서버로 전송
-python main.py --ip 192.168.0.100 --send-to 192.168.0.200
+python main.py --ip 192.168.0.100 --send-to 10.150.1.34 --target-port 8000 --target-path /api/v1/ingest
 
 # Headless 모드 (화면 없이 전송만)
-python main.py --ip 192.168.0.100 --send-to 192.168.0.200 --no-show
+python main.py --ip 192.168.0.100 --send-to 10.150.1.34 --target-port 8000 --target-path /api/v1/ingest --no-show
 
 # 전체 옵션
 python main.py \
   --ip 192.168.0.100        # ESP32-CAM IP (필수)
   --send-to 192.168.0.200   # 수신 서버 IP
-  --target-port 8000        # 수신 서버 포트 (기본: 8000)
-  --target-path /ocr        # 수신 엔드포인트 (기본: /ocr)
+  --target-port 8000              # 수신 서버 포트 (기본: 8000)
+  --target-path /api/v1/ingest   # 수신 엔드포인트 (기본: /ocr)
   --interval 10             # 전송 주기 초 (기본: 10)
   --model models/best.pt    # YOLO 모델 경로
   --conf 0.5                # YOLO 감지 임계값
@@ -118,13 +118,15 @@ python main.py \
 python tests/test_ocr_esp32.py --ip 192.168.0.100
 
 # 이미지 OCR 후 서버 전송 테스트
-python tests/test_ocr_image_send.py --image data/samples/Full1.jpeg --send-to 192.168.0.200
+python tests/test_ocr_image_send.py --image data/samples/Full1.jpeg --send-to 10.150.1.34 --port 8000 --path /api/v1/ingest
 
 # 이미지 OCR만 (전송 없음)
 python tests/test_ocr_image_send.py --image data/samples/Full1.jpeg
 ```
 
 ## 전송 JSON 형식
+
+**엔드포인트:** `POST http://10.150.1.34:8000/api/v1/ingest`
 
 ```json
 {

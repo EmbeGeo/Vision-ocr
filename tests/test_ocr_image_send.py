@@ -16,11 +16,15 @@ from ocr.easyocr_recognizer import EasyOcrRecognizer
 
 CONF_THRESHOLD = 0.40
 
+API_KEY = "4b32d9628d62163409a787fe2cb000f76337058250098a27"
+
 
 def send_json(url: str, payload: dict) -> bool:
     json_data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
-        url, data=json_data, headers={"Content-Type": "application/json"}
+        url, data=json_data,
+        headers={"Content-Type": "application/json", "X-API-Key": API_KEY},
+        method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
@@ -38,7 +42,7 @@ def main():
     parser.add_argument("--send-to", type=str, default=None,
                         help="JSON을 전송할 대상 IP (예: 192.168.1.100)")
     parser.add_argument("--port", type=int, default=8000, help="수신 서버 포트 (기본: 8000)")
-    parser.add_argument("--path", type=str, default="/ocr", help="수신 서버 엔드포인트 (기본: /ocr)")
+    parser.add_argument("--path", type=str, default="/api/v1/ingest", help="수신 서버 엔드포인트 (기본: /api/v1/ingest)")
     args = parser.parse_args()
 
     print("[System] 모델 로딩 중...")

@@ -6,9 +6,12 @@ import urllib.request
 from datetime import datetime
 
 
+API_KEY = "4b32d9628d62163409a787fe2cb000f76337058250098a27"
+
+
 class DataSender:
     """OCR 판독 결과를 주기적으로 외부 서버로 전송하는 클래스 (데이터 검증 포함)"""
-    def __init__(self, target_ip, target_port=8000, target_path="/ocr", results_dict=None, interval=10):
+    def __init__(self, target_ip, target_port=8000, target_path="/api/v1/ingest", results_dict=None, interval=10):
         self.url = f"http://{target_ip}:{target_port}{target_path}"
         self.results_dict = results_dict
         self.interval = interval
@@ -70,10 +73,11 @@ class DataSender:
 
                 json_data = json.dumps(payload).encode('utf-8')
                 req = urllib.request.Request(
-                    self.url, data=json_data, headers={'Content-Type': 'application/json'}
+                    self.url, data=json_data,
+                    headers={'Content-Type': 'application/json', 'X-API-Key': API_KEY},
                 )
                 with urllib.request.urlopen(req, timeout=3) as response:
-                    if response.status == 200:
+                    if response.status == 201:
                         logging.debug(f"[Sender] Data sent successfully at {payload['timestamp']}")
             except Exception as e:
                 logging.error(f"[Sender] Failed to send data: {e}")
