@@ -76,15 +76,19 @@ def main():
     worker_thread = threading.Thread(target=ocr_worker, daemon=True)
     worker_thread.start()
 
-    # 비디오 경로 절대 경로로 변환
-    video_path = os.path.abspath(args.video)
-    if not os.path.exists(video_path):
-        print(f"[Error] 파일을 찾을 수 없습니다: {video_path}")
-        return
+    # 비디오 경로 또는 스트림 주소 확인
+    is_stream = args.video.startswith(('http://', 'https://', 'rtsp://', 'rtmp://'))
+    if is_stream:
+        video_path = args.video
+    else:
+        video_path = os.path.abspath(args.video)
+        if not os.path.exists(video_path):
+            print(f"[Error] 파일을 찾을 수 없습니다: {video_path}")
+            return
 
     # 다중 백엔드 시도 (Mac용)
     cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened() or cap.get(cv2.CAP_PROP_FRAME_COUNT) <= 0:
+    if not cap.isOpened() or (not is_stream and cap.get(cv2.CAP_PROP_FRAME_COUNT) <= 0):
         print("[System] 기본 드라이버 실패, FFmpeg 백엔드로 재시도합니다...")
         cap.release()
         cap = cv2.VideoCapture(video_path, cv2.CAP_FFMPEG)

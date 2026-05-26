@@ -27,3 +27,4 @@ data/dataset/
 
 # Logs
 *.log
+data/samples/test_video.mp4
